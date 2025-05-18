@@ -167,16 +167,26 @@ fmt = lambda x: f"${x:,.0f}".replace(",", ".")
 st.title("Finanzas Personales")
 
 # === FILTROS PRINCIPALES ===
+if df.empty:
+    st.warning("No hay datos disponibles. Por favor, agrega algunos movimientos.")
+    años = [datetime.now().year]
+    df_filtrado = pd.DataFrame(columns=["fecha", "nombre", "importe", "tipo_movimiento"])
+else:
+    años = sorted(df["fecha"].dt.year.unique())
+    
 col1, col2, col3 = st.columns([1, 1, 2])
 with col1:
-    año = st.selectbox("Selecciona un año", sorted(df["fecha"].dt.year.unique()), index=0)
-    df_filtrado = df[df["fecha"].dt.year == año]
+    año = st.selectbox("Selecciona un año", años, index=0)
+    df_filtrado = df[df["fecha"].dt.year == año] if not df.empty else df
 
 with col2:    
-    meses = ["Todos"] + sorted(df_filtrado["mes"].unique().tolist())
+    if df_filtrado.empty:
+        meses = ["Todos"]
+    else:
+        meses = ["Todos"] + sorted(df_filtrado["mes"].unique().tolist())
     mes_seleccionado = st.selectbox("Selecciona un mes", meses, index=0)
     
-    if mes_seleccionado != "Todos":
+    if mes_seleccionado != "Todos" and not df_filtrado.empty:
         df_filtrado = df_filtrado[df_filtrado["mes"] == mes_seleccionado]
 
 # Inicializar estados de sesión
