@@ -8,14 +8,15 @@ from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 import json
-import os
+import toml
 
 # === CONFIGURACIÓN DE ACCESO A GOOGLE SHEETS ===
 
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
-# Usar el archivo de credenciales de Cata
-credentials = ServiceAccountCredentials.from_json_keyfile_name("cata/credenciales_cata.json", scope)
+# Obtener credenciales desde Streamlit Secrets
+credentials_dict = st.secrets["GOOGLE_SHEETS_CREDS"]
+credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
 client = gspread.authorize(credentials)
 
 # ID de la hoja de cálculo de Cata
