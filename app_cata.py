@@ -166,11 +166,19 @@ fmt = lambda x: f"${x:,.0f}".replace(",", ".")
 
 st.title("Finanzas Personales")
 
+# Crear DataFrames vacíos con las columnas correctas si no hay datos
+if df.empty:
+    df = pd.DataFrame(columns=["fecha", "nombre", "importe", "tipo_movimiento", "mes"])
+if df_ahorros.empty:
+    df_ahorros = pd.DataFrame(columns=["fecha", "monto", "descripcion"])
+if df_metas.empty:
+    df_metas = pd.DataFrame(columns=["nombre_objetivo", "meta_total", "fecha_meta", "descripcion"])
+
 # === FILTROS PRINCIPALES ===
 if df.empty:
     st.warning("No hay datos disponibles. Por favor, agrega algunos movimientos.")
     años = [datetime.now().year]
-    df_filtrado = pd.DataFrame(columns=["fecha", "nombre", "importe", "tipo_movimiento"])
+    df_filtrado = df.copy()
 else:
     años = sorted(df["fecha"].dt.year.unique())
     
@@ -223,12 +231,19 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     # === RESUMEN GRÁFICO ===
     st.subheader("Resumen General")
-    gastos_filtrados = df_filtrado[df_filtrado["tipo_movimiento"] != "Ingresos"]
-    ingresos_filtrados = df_filtrado[df_filtrado["tipo_movimiento"] == "Ingresos"]
-
-    total_gastos = gastos_filtrados["importe"].sum()
-    total_ingresos = ingresos_filtrados["importe"].sum()
-    balance = total_ingresos - total_gastos
+    
+    if df_filtrado.empty:
+        gastos_filtrados = df_filtrado.copy()
+        ingresos_filtrados = df_filtrado.copy()
+        total_gastos = 0
+        total_ingresos = 0
+        balance = 0
+    else:
+        gastos_filtrados = df_filtrado[df_filtrado["tipo_movimiento"] != "Ingresos"]
+        ingresos_filtrados = df_filtrado[df_filtrado["tipo_movimiento"] == "Ingresos"]
+        total_gastos = gastos_filtrados["importe"].sum()
+        total_ingresos = ingresos_filtrados["importe"].sum()
+        balance = total_ingresos - total_gastos
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Ingresos", fmt(total_ingresos))
@@ -237,47 +252,54 @@ with tab1:
 
     # Gráficos de categorías
     st.subheader("Distribución de gastos por categoría")
-    cat_summary = gastos_filtrados.groupby("tipo_movimiento")["importe"].sum().reset_index()
-    cat_summary["porcentaje"] = 100 * cat_summary["importe"] / cat_summary["importe"].sum()
-    cat_summary["importe_fmt"] = cat_summary["importe"].apply(fmt)
+    
+    if gastos_filtrados.empty:
+        st.info("No hay gastos registrados en el período seleccionado.")
+    else:
+        cat_summary = gastos_filtrados.groupby("tipo_movimiento")["importe"].sum().reset_index()
+        cat_summary["porcentaje"] = 100 * cat_summary["importe"] / cat_summary["importe"].sum()
+        cat_summary["importe_fmt"] = cat_summary["importe"].apply(fmt)
 
-    # Definir colores específicos para cada categoría
-    COLOR_MAP = {
-        "Alimentacion": "#63B3ED",     # Azul claro
-        "Transporte": "#38B2AC",       # Verde turquesa
-        "Compras": "#F56565",          # Rojo
-        "Gastos fijos": "#FBD38D",     # Rosa salmón
-        "Ahorro": "#2B6CB0",           # Azul oscuro
-        "Salidas": "#48BB78",          # Verde
-        "Otros": "#D6BCFA"             # Morado claro
-    }
+        # Definir colores específicos para cada categoría
+        COLOR_MAP = {
+            "Alimentacion": "#63B3ED",     # Azul claro
+            "Transporte": "#38B2AC",       # Verde turquesa
+            "Compras": "#F56565",          # Rojo
+            "Gastos fijos": "#FBD38D",     # Rosa salmón
+            "Ahorro": "#2B6CB0",           # Azul oscuro
+            "Salidas": "#48BB78",          # Verde
+            "Otros": "#D6BCFA"             # Morado claro
+        }
 
-    col1, col2 = st.columns(2)
-    # Gráfico de torta
-    fig1 = px.pie(cat_summary, names="tipo_movimiento", values="porcentaje", 
-                title="Distribución por categoría",
-                color="tipo_movimiento",
-                color_discrete_map=COLOR_MAP)
-    fig1.update_traces(textinfo="percent")
+        col1, col2 = st.columns(2)
+        # Gráfico de torta
+        fig1 = px.pie(cat_summary, names="tipo_movimiento", values="porcentaje", 
+                    title="Distribución por categoría",
+                    color="tipo_movimiento",
+                    color_discrete_map=COLOR_MAP)
+        fig1.update_traces(textinfo="percent")
 
-    # Gráfico de barras horizontales
-    cat_summary_sorted = cat_summary.sort_values("importe", ascending=False)
-    fig2 = px.bar(cat_summary_sorted, y="tipo_movimiento", x="importe", text="importe_fmt",
-                title="Gastos absolutos", orientation='h',
-                color="tipo_movimiento",
-                color_discrete_map=COLOR_MAP)
-    fig2.update_layout(showlegend=False)
+        # Gráfico de barras horizontales
+        cat_summary_sorted = cat_summary.sort_values("importe", ascending=False)
+        fig2 = px.bar(cat_summary_sorted, y="tipo_movimiento", x="importe", text="importe_fmt",
+                    title="Gastos absolutos", orientation='h',
+                    color="tipo_movimiento",
+                    color_discrete_map=COLOR_MAP)
+        fig2.update_layout(showlegend=False)
 
-    col1.plotly_chart(fig1, use_container_width=True)
-    col2.plotly_chart(fig2, use_container_width=True)
+        col1.plotly_chart(fig1, use_container_width=True)
+        col2.plotly_chart(fig2, use_container_width=True)
 
-    # Evolución mensual
-    st.subheader("Evolución mensual de gastos")
-    evol = df[df["tipo_movimiento"] != "Ingresos"].groupby(["mes", "tipo_movimiento"])["importe"].sum().reset_index()
-    fig_line = px.line(evol, x="mes", y="importe", color="tipo_movimiento", markers=True,
-                      color_discrete_map=COLOR_MAP)
-    fig_line.update_layout(yaxis_tickformat=",", yaxis_tickprefix="$ ")
-    st.plotly_chart(fig_line, use_container_width=True)
+        # Evolución mensual
+        st.subheader("Evolución mensual de gastos")
+        if df.empty:
+            st.info("No hay datos históricos para mostrar la evolución mensual.")
+        else:
+            evol = df[df["tipo_movimiento"] != "Ingresos"].groupby(["mes", "tipo_movimiento"])["importe"].sum().reset_index()
+            fig_line = px.line(evol, x="mes", y="importe", color="tipo_movimiento", markers=True,
+                          color_discrete_map=COLOR_MAP)
+            fig_line.update_layout(yaxis_tickformat=",", yaxis_tickprefix="$ ")
+            st.plotly_chart(fig_line, use_container_width=True)
 
 with tab2:
     # === GESTIÓN DE MOVIMIENTOS ===
@@ -359,52 +381,61 @@ with tab3:
     # === DETALLE MENSUAL ===
     st.subheader("Detalle por mes y categoría")
     
-    # Crear pivot table incluyendo ingresos
-    pivot = df_filtrado.groupby(["mes", "tipo_movimiento"])["importe"].sum().unstack(fill_value=0)
-    # Reordenar columnas para que Ingresos sea la primera
-    columnas = ["Ingresos"] + [col for col in pivot.columns if col != "Ingresos"]
-    pivot = pivot[columnas]
-    # Añadir columna de Total (Ingresos - Gastos)
-    gastos_totales = pivot.drop("Ingresos", axis=1).sum(axis=1)
-    pivot["Total"] = pivot["Ingresos"] - gastos_totales
-    st.dataframe(pivot.style.format(fmt))
+    if df_filtrado.empty:
+        st.info("No hay datos disponibles para mostrar el detalle mensual.")
+    else:
+        # Crear pivot table incluyendo ingresos
+        pivot = df_filtrado.groupby(["mes", "tipo_movimiento"])["importe"].sum().unstack(fill_value=0)
+        # Reordenar columnas para que Ingresos sea la primera
+        columnas = ["Ingresos"] + [col for col in pivot.columns if col != "Ingresos"]
+        pivot = pivot[columnas]
+        # Añadir columna de Total (Ingresos - Gastos)
+        gastos_totales = pivot.drop("Ingresos", axis=1).sum(axis=1)
+        pivot["Total"] = pivot["Ingresos"] - gastos_totales
+        st.dataframe(pivot.style.format(fmt))
 
 with tab4:
     # === LISTA DE MOVIMIENTOS ===
     st.subheader("Lista de Movimientos")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        categoria_filtro = st.multiselect(
-            "Filtrar por categoría",
-            options=sorted(df["tipo_movimiento"].unique().tolist())
-        )
-    with col2:
-        mes_filtro = st.multiselect(
-            "Filtrar por mes",
-            options=sorted(df_filtrado["mes"].unique().tolist())
-        )
+    if df.empty:
+        st.info("No hay movimientos registrados.")
+    else:
+        col1, col2 = st.columns(2)
+        with col1:
+            categoria_filtro = st.multiselect(
+                "Filtrar por categoría",
+                options=sorted(df["tipo_movimiento"].unique().tolist())
+            )
+        with col2:
+            mes_filtro = st.multiselect(
+                "Filtrar por mes",
+                options=sorted(df_filtrado["mes"].unique().tolist())
+            )
 
-    df_detalle = df_filtrado.copy()
-    if categoria_filtro:
-        df_detalle = df_detalle[df_detalle["tipo_movimiento"].isin(categoria_filtro)]
-    if mes_filtro:
-        df_detalle = df_detalle[df_detalle["mes"].isin(mes_filtro)]
+        df_detalle = df_filtrado.copy()
+        if categoria_filtro:
+            df_detalle = df_detalle[df_detalle["tipo_movimiento"].isin(categoria_filtro)]
+        if mes_filtro:
+            df_detalle = df_detalle[df_detalle["mes"].isin(mes_filtro)]
 
-    df_detalle = df_detalle.sort_values("fecha", ascending=False)
-    df_detalle["fecha"] = df_detalle["fecha"].dt.strftime("%Y-%m-%d")
-    df_detalle["importe"] = df_detalle["importe"].apply(fmt)
+        if df_detalle.empty:
+            st.info("No hay movimientos que coincidan con los filtros seleccionados.")
+        else:
+            df_detalle = df_detalle.sort_values("fecha", ascending=False)
+            df_detalle["fecha"] = df_detalle["fecha"].dt.strftime("%Y-%m-%d")
+            df_detalle["importe"] = df_detalle["importe"].apply(fmt)
 
-    st.dataframe(
-        df_detalle[["fecha", "nombre", "importe", "tipo_movimiento"]],
-        column_config={
-            "fecha": "Fecha",
-            "nombre": "Descripción",
-            "importe": "Importe",
-            "tipo_movimiento": "Categoría"
-        },
-        hide_index=True
-    )
+            st.dataframe(
+                df_detalle[["fecha", "nombre", "importe", "tipo_movimiento"]],
+                column_config={
+                    "fecha": "Fecha",
+                    "nombre": "Descripción",
+                    "importe": "Importe",
+                    "tipo_movimiento": "Categoría"
+                },
+                hide_index=True
+            )
 
 with tab5:
     # === AHORROS Y METAS ===
@@ -418,6 +449,10 @@ with tab5:
         if st.button("➕ Registrar Ahorro"):
             st.session_state["mostrar_form_ahorro"] = True
             st.session_state["editar_ahorro"] = None
+    
+    # Mostrar resumen de ahorros
+    if df_ahorros.empty and not st.session_state.get("mostrar_form_ahorro", False):
+        st.info("No hay ahorros registrados. Usa el botón '➕ Registrar Ahorro' para comenzar.")
     
     # Formulario para añadir/editar ahorro
     if st.session_state["mostrar_form_ahorro"] or st.session_state["editar_ahorro"] is not None:
