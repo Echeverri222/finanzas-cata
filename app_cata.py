@@ -12,6 +12,18 @@ import toml
 
 # === CONFIGURACIÓN DE ACCESO A GOOGLE SHEETS ===
 
+# Definir tipos de movimiento constantes
+TIPOS_MOVIMIENTO = [
+    "Ingresos",
+    "Alimentacion",
+    "Transporte",
+    "Compras",
+    "Gastos fijos",
+    "Ahorro",
+    "Salidas",
+    "Otros"
+]
+
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
 # Obtener credenciales desde Streamlit Secrets
@@ -262,13 +274,14 @@ with tab1:
 
         # Definir colores específicos para cada categoría
         COLOR_MAP = {
-            "Alimentacion": "#63B3ED",     # Azul claro
-            "Transporte": "#38B2AC",       # Verde turquesa
-            "Compras": "#F56565",          # Rojo
-            "Gastos fijos": "#FBD38D",     # Rosa salmón
-            "Ahorro": "#2B6CB0",           # Azul oscuro
-            "Salidas": "#48BB78",          # Verde
-            "Otros": "#D6BCFA"             # Morado claro
+            "Ingresos": "#38A169",       # Verde oscuro
+            "Alimentacion": "#63B3ED",    # Azul claro
+            "Transporte": "#38B2AC",      # Verde turquesa
+            "Compras": "#F56565",         # Rojo
+            "Gastos fijos": "#FBD38D",    # Rosa salmón
+            "Ahorro": "#2B6CB0",          # Azul oscuro
+            "Salidas": "#48BB78",         # Verde
+            "Otros": "#D6BCFA"            # Morado claro
         }
 
         col1, col2 = st.columns(2)
@@ -324,7 +337,7 @@ with tab2:
                 importe = st.number_input("Importe", step=1000)
             with col2:
                 nombre = st.text_input("Nombre del movimiento")
-                tipo = st.selectbox("Tipo de movimiento", sorted(df["tipo_movimiento"].unique()) + ["Otro"])
+                tipo = st.selectbox("Tipo de movimiento", TIPOS_MOVIMIENTO)
             
             submit = st.form_submit_button("Agregar")
             if submit:
